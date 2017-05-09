@@ -11,29 +11,30 @@
 
 // Constants
 #define NODE_NUM 3
-//#define MAX_NUM 1000
-#define MAX_NUM 10
-#define EACH_NODE_SORTING_NUM 10
+#define MAX_NUM 1000
+#define EACH_NODE_SORTING_NUM 5
 
 // Structures
 struct node {
   int id;
-  int num[10];
+  int num[EACH_NODE_SORTING_NUM];
   int flag;
 };
 
 // Functions
 int generate_node (int);
-void top_node_process (int);
-void chain_node_process (int);
+void parent_node_process (int);
+void child_node_process (int);
 void shuffle_array (int *);
+void construct_node (struct node *, int);
 
 
 //////////////////////
 /* Global variables */
 ////////////////////
 
-int counter = 0;
+static int counter = 0;
+static int rand_num_array[MAX_NUM];
 
 
 ///////////
@@ -42,12 +43,8 @@ int counter = 0;
 
 int main (void) {
 
-  int shuffled_array[MAX_NUM];
-  shuffle_array(shuffled_array);
+  shuffle_array(rand_num_array);
   int i;
-  for (i = 0; i < sizeof(shuffled_array) / sizeof(int); i++) {
-    printf("%d\n", shuffled_array[i]);
-  }
   generate_node(NODE_NUM);
 
   return 0;
@@ -59,35 +56,56 @@ int main (void) {
 //////////////
 
 int generate_node (int node_id) {
-  if (node_id > 1) {
-    pid_t pid;
-    int fd[2];
+  pid_t pid;
+  int fd[2];
 
-    pipe(fd);
-    pid = fork();
-    if (pid == 0){
-      chain_node_process(node_id);
-    } else {
-      top_node_process(node_id);
-    }
+  pipe(fd);
+  pid = fork();
+  if (pid == 0){
+    child_node_process(node_id);
   } else {
-    puts("All processes have been created.");
+    parent_node_process(node_id);
   }
   return 0;
 }
 
-void chain_node_process (int node_id) {
-  node_id--;
-  printf("Node %d pid: %d\n", node_id, getpid());
-  generate_node(node_id);
+void construct_node (struct node *node, int node_id) {
+  node->id = node_id;
+  int i;
+  int sp = EACH_NODE_SORTING_NUM * (node_id - 1);
+  for (i = 0; i < EACH_NODE_SORTING_NUM; i++){
+    node->num[i] = rand_num_array[sp + i];
+  }
 }
 
-void top_node_process (int node_id) {
-  if (node_id == NODE_NUM) { // top node
-    printf("Node %d pid: %d\n", node_id, getpid());
+void parent_node_process (int node_id) {
+  if (node_id == NODE_NUM) {  // top node
+    struct node node;
+    construct_node(&node, node_id);
+    printf("Node %d pid: %d\n", node.id, getpid());
+    int i;
+    for (i = 0; i < EACH_NODE_SORTING_NUM; i++) {
+      printf("num %d, %d\n", node.num[i], i);
+    }
   }
   int status;
   wait(&status);
+}
+
+void child_node_process (int node_id) {
+  node_id--;
+  struct node node;
+  construct_node(&node, node_id);
+  printf("Node %d pid: %d\n", node.id, getpid());
+  int i;
+  for (i = 0; i < EACH_NODE_SORTING_NUM; i++) {
+    printf("num %d, %d\n", node.num[i], i);
+  }
+  if (node_id == 1) {  // bottom node
+    puts("All processes have been created.");
+  } else {
+    generate_node(node_id);
+  }
 }
 
 void shuffle_array (int *array) {
