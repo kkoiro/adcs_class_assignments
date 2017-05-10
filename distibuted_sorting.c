@@ -19,22 +19,22 @@ struct node {
   int id;
   int num[EACH_NODE_SORTING_NUM];
   int flag;
+  int buff;
 };
 
 // Functions
-int generate_node (int);
-void parent_node_process (int);
-void child_node_process (int);
+int generate_process (int);
+void construct_nodes (struct node *);
+void parent_node_process (int, int [2], int [2]);
+void child_node_process (int, int [2], int [2]);
 void shuffle_array (int *);
-void construct_node (struct node *, int);
 
 
 //////////////////////
 /* Global variables */
 ////////////////////
 
-static int counter = 0;
-static int rand_num_array[MAX_NUM];
+struct node node[NODE_NUM];
 
 
 ///////////
@@ -43,9 +43,8 @@ static int rand_num_array[MAX_NUM];
 
 int main (void) {
 
-  shuffle_array(rand_num_array);
-  int i;
-  generate_node(NODE_NUM);
+  construct_nodes(node);
+  generate_process(NODE_NUM -1);
 
   return 0;
 }
@@ -55,58 +54,84 @@ int main (void) {
 /* Functions */
 //////////////
 
-int generate_node (int node_id) {
+int generate_process (int node_id) {
   pid_t pid;
-  int fd[2];
+  int pipe_c2p[2];
+  int pipe_p2c[2];
 
-  pipe(fd);
+  pipe(pipe_c2p);
+  pipe(pipe_p2c);
   pid = fork();
   if (pid == 0){
-    child_node_process(node_id);
+    close(pipe_c2p[0]);
+    close(pipe_p2c[1]);
+    child_node_process(node_id, pipe_c2p, pipe_p2c);
   } else {
-    parent_node_process(node_id);
+    close(pipe_c2p[1]);
+    close(pipe_p2c[0]);
+    parent_node_process(node_id, pipe_c2p, pipe_p2c);
   }
   return 0;
 }
 
-void construct_node (struct node *node, int node_id) {
-  node->id = node_id;
+
+void construct_nodes (struct node *node) {
+  int rand_num_array[MAX_NUM];
+  shuffle_array(rand_num_array);
+
   int i;
-  int sp = EACH_NODE_SORTING_NUM * (node_id - 1);
-  for (i = 0; i < EACH_NODE_SORTING_NUM; i++){
-    node->num[i] = rand_num_array[sp + i];
+  for (i = 0; i < NODE_NUM; i++){
+    node[i].id = i;
+    node[i].buff = 0;
+    int sp = EACH_NODE_SORTING_NUM * i;
+    int j;
+    for (j = 0; j < EACH_NODE_SORTING_NUM; j++){
+      node[i].num[j] = rand_num_array[sp + j];
+    }
   }
 }
 
-void parent_node_process (int node_id) {
-  if (node_id == NODE_NUM) {  // top node
-    struct node node;
-    construct_node(&node, node_id);
-    printf("Node %d pid: %d\n", node.id, getpid());
+
+void parent_node_process (int node_id, int pipe_c2p[2], int pipe_p2c[2]) {
+  if (node_id == NODE_NUM - 1) {  // top node
+    //printf("Node %d pid: %d\n", node_id, getpid());
     int i;
     for (i = 0; i < EACH_NODE_SORTING_NUM; i++) {
-      printf("num %d, %d\n", node.num[i], i);
+      printf("num %d, %d\n", node[node_id].num[i], i);
     }
+    node[node_id].buff = node[node_id].num[0];
   }
+
+  write(pipe_p2c[1], &node[node_id].buff, sizeof(node[node_id].buff));
+
+  read(pipe_c2p[0], &node[node_id].buff, sizeof(node[node_id].buff));
+
   int status;
   wait(&status);
 }
 
-void child_node_process (int node_id) {
+
+void child_node_process (int node_id, int pipe_c2p[2], int pipe_p2c[2]) {
   node_id--;
-  struct node node;
-  construct_node(&node, node_id);
-  printf("Node %d pid: %d\n", node.id, getpid());
+  printf("Node %d pid: %d\n", node_id, getpid());
   int i;
   for (i = 0; i < EACH_NODE_SORTING_NUM; i++) {
-    printf("num %d, %d\n", node.num[i], i);
+    printf("num %d, %d\n", node[node_id].num[i], i);
   }
-  if (node_id == 1) {  // bottom node
+
+  read(pipe_p2c[0], &node[node_id].buff, sizeof(node[node_id].buff));
+  node[node_id].buff++;
+
+  if (node_id == 0) {  // bottom node
     puts("All processes have been created.");
+    printf("received_num %d\n", node[node_id].buff);
+    node[node_id].buff = node[node_id].num[0];
+    write(pipe_c2p[1], &node[node_id].buff, sizeof(node[node_id].buff));
   } else {
-    generate_node(node_id);
+    generate_process(node_id);
   }
 }
+
 
 void shuffle_array (int *array) {
   int i;
