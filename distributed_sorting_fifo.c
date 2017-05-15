@@ -13,9 +13,9 @@
 /////////////////
 
 // Constants
-#define NODE_NUM 4
+#define NODE_NUM 3
 #define MAX_NUM 1000
-#define EACH_NODE_SORTING_NUM 3
+#define EACH_NODE_SORTING_NUM 5
 
 // Structures
 struct node {
@@ -38,6 +38,7 @@ void parent_node_process (int);
 void child_node_process (int);
 void create_sequential_num_array (int *);
 void shuffle_array (int *);
+int compare_int (const void *a, const void *b);
 
 
 //////////////////////
@@ -53,8 +54,7 @@ int rand_num_array[MAX_NUM];
 
 int main (void) {
 
-  // rand_num_array is declared as a global variable
-  create_sequential_num_array(rand_num_array);
+  create_sequential_num_array(rand_num_array);  // rand_num_array is declared as a global variable
   shuffle_array(rand_num_array);
   prepare_fifos();
   generate_new_process(0);
@@ -151,6 +151,7 @@ void parent_node_process (int node_id) {
 void child_node_process (int node_id) {
   struct node node;
   construct_node(&node, node_id);
+  qsort((void *)node.num, EACH_NODE_SORTING_NUM, sizeof(int), compare_int);
   printf("Node %d pid: %d\n", node_id, getpid());
   if (node_id == 0) {
     // top node
@@ -186,5 +187,15 @@ void shuffle_array (int *array) {
     tmp = array[i];
     array[i] = array[j];
     array[j] = tmp;
+  }
+}
+
+int compare_int (const void *a, const void *b) {
+  if (*(int *)a > *(int *)b) {
+    return 1;
+  } else if (*(int *)a == *(int *)b) {
+    return 0;
+  } else {
+    return -1;
   }
 }
