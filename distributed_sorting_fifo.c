@@ -21,7 +21,10 @@
 struct node {
   int id;
   int num[EACH_NODE_SORTING_NUM];
-  int fifods[4];
+  int fifods_r_from_upper;
+  int fifods_w_to_upper;
+  int fifods_r_from_lower;
+  int fifods_w_to_lower;
   int flag;
   int buff;
 };
@@ -54,7 +57,7 @@ int main (void) {
   create_sequential_num_array(rand_num_array);
   shuffle_array(rand_num_array);
   prepare_fifos();
-  generate_new_process(NODE_NUM - 1);
+  generate_new_process(0);
   unlink_fifos();
 
   return 0;
@@ -100,48 +103,44 @@ void construct_node (struct node *node, int node_id) {
   node->id = node_id;
 
   int i;
-  int sp = EACH_NODE_SORTING_NUM * node_id;
+  int offset = EACH_NODE_SORTING_NUM * node_id;
   for (i = 0; i < EACH_NODE_SORTING_NUM; i++){
-    node->num[i] = rand_num_array[sp + i];
+    node->num[i] = rand_num_array[offset + i];
   }
 
   char fifo_name[16];
   if (node_id == 0) {
     // top node
     sprintf(fifo_name, "%d.fifo", 0);
-    node->fifods[2] = open(fifo_name, O_RDONLY);
+    node->fifods_r_from_lower = open(fifo_name, O_RDONLY);
     sprintf(fifo_name, "%d.fifo", 1);
-    node->fifods[3] = open(fifo_name, O_WRONLY);
+    node->fifods_w_to_lower = open(fifo_name, O_WRONLY);
   } else if (node_id == NODE_NUM - 1) {
     // bottom node
     sprintf(fifo_name, "%d.fifo", (NODE_NUM - 1) * 2 - 2);
-    node->fifods[0] = open(fifo_name, O_WRONLY);
+    node->fifods_w_to_upper = open(fifo_name, O_WRONLY);
     sprintf(fifo_name, "%d.fifo", (NODE_NUM - 1) * 2 - 1);
-    node->fifods[1] = open(fifo_name, O_RDONLY);
+    node->fifods_r_from_upper = open(fifo_name, O_RDONLY);
   } else {
     // middle node
-    sp = (node_id - 1) * 2;
-    sprintf(fifo_name, "%d.fifo", sp);
-    node->fifods[sp] = open(fifo_name, O_WRONLY);
-    sprintf(fifo_name, "%d.fifo", sp + 1);
-    node->fifods[sp + 1] = open(fifo_name, O_RDONLY);
-    sprintf(fifo_name, "%d.fifo", sp + 2);
-    node->fifods[sp + 2] = open(fifo_name, O_RDONLY);
-    sprintf(fifo_name, "%d.fifo", sp + 3);
-    node->fifods[sp + 3] = open(fifo_name, O_WRONLY);
-    printf("fifodssp %d %d\n",node->fifods[sp], sp);
-    printf("fifodssp %d %d\n",node->fifods[sp+1], sp+1);
-    printf("fifodssp %d %d\n",node->fifods[sp+2], sp+2);
-    printf("fifodssp %d %d\n",node->fifods[sp+3], sp+3);
+    offset = (node_id - 1) * 2;
+    sprintf(fifo_name, "%d.fifo", offset);
+    node->fifods_w_to_upper = open(fifo_name, O_WRONLY);
+    sprintf(fifo_name, "%d.fifo", offset + 1);
+    node->fifods_r_from_upper = open(fifo_name, O_RDONLY);
+    sprintf(fifo_name, "%d.fifo", offset + 2);
+    node->fifods_r_from_lower = open(fifo_name, O_RDONLY);
+    sprintf(fifo_name, "%d.fifo", offset + 3);
+    node->fifods_w_to_lower = open(fifo_name, O_WRONLY);
   }
 }
 
 
 void parent_node_process (int node_id) {
-  if (node_id == 0) {
+  if (node_id == NODE_NUM - 1) {
     //printf("All processes have been created\n");
   } else {
-    generate_new_process(node_id - 1);
+    generate_new_process(node_id + 1);
   }
 
   int status;
@@ -152,26 +151,20 @@ void parent_node_process (int node_id) {
 void child_node_process (int node_id) {
   struct node node;
   construct_node(&node, node_id);
-  //printf("Node %d pid: %d\n", node_id, getpid());
-  int i;
-  for (i = 0; i < EACH_NODE_SORTING_NUM; i++) {
-    //printf("randnum_%d %d\n", i, node.num[i]);
-  }
+  printf("Node %d pid: %d\n", node_id, getpid());
   if (node_id == 0) {
     // top node
-    node.buff = node.num[0];
-    write(node.fifods[3], &node.buff, sizeof(node.buff));
-    printf("Node %d sending_num: %d\n", node_id, node.buff);
+    read(node.fifods_r_from_lower, &node.buff, sizeof(node.buff));
+    printf("Received_num_from_top_node: %d\n", node.buff);
   } else if (node_id == NODE_NUM - 1) {
     // bottom node
-    read(node.fifods[1], &node.buff, sizeof(node.buff));
-    printf("Received_num_from_top_node: %d\n", node.buff);
+    node.buff = node.num[0];
+    write(node.fifods_w_to_upper, &node.buff, sizeof(node.buff));
+    printf("Node %d sending_num: %d\n", node_id, node.buff);
   } else {
     // middle node
-    read(node.fifods[1], &node.buff, sizeof(node.buff));
-    //printf("%d readfifo%d\n", node.buff, node.fifods[1]);
-    write(node.fifods[3], &node.buff, sizeof(node.buff));
-    //printf("%d writefifo%d\n", node.buff, node.fifods[3]);
+    read(node.fifods_r_from_lower, &node.buff, sizeof(node.buff));
+    write(node.fifods_w_to_upper, &node.buff, sizeof(node.buff));
   }
 }
 
