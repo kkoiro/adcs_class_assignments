@@ -12,21 +12,23 @@
 // Constants
 #define NODE_NUM 3
 #define MAX_NUM 1000
-#define EACH_NODE_SORTING_NUM 5
+#define EACH_NODE_SORTING_NUM 3
 
 // Structures
 struct node {
   int id;
   int num[EACH_NODE_SORTING_NUM];
+  int pipeds[4];
   int flag;
   int buff;
 };
 
 // Functions
-int generate_process (int);
+int generate_new_process (int);
 void construct_nodes (struct node *);
 void parent_node_process (int, int [2], int [2]);
 void child_node_process (int, int [2], int [2]);
+void create_sequential_num_array (int *);
 void shuffle_array (int *);
 
 
@@ -35,6 +37,7 @@ void shuffle_array (int *);
 ////////////////////
 
 struct node node[NODE_NUM];
+int rand_num_array[MAX_NUM];
 
 
 ///////////
@@ -43,8 +46,10 @@ struct node node[NODE_NUM];
 
 int main (void) {
 
+  create_sequential_num_array(rand_num_array); // rand_num_array is declared as a global variable
+  shuffle_array(rand_num_array);
   construct_nodes(node);
-  generate_process(NODE_NUM -1);
+  generate_new_process(NODE_NUM -1);
 
   return 0;
 }
@@ -54,7 +59,7 @@ int main (void) {
 /* Functions */
 //////////////
 
-int generate_process (int node_id) {
+int generate_new_process (int node_id) {
   pid_t pid;
   int pipe_c2p[2];
   int pipe_p2c[2];
@@ -128,24 +133,27 @@ void child_node_process (int node_id, int pipe_c2p[2], int pipe_p2c[2]) {
     node[node_id].buff = node[node_id].num[0];
     write(pipe_c2p[1], &node[node_id].buff, sizeof(node[node_id].buff));
   } else {
-    generate_process(node_id);
+    generate_new_process(node_id);
+  }
+}
+
+
+void create_sequential_num_array(int *array) {
+  int i;
+  for (i = 0; i < MAX_NUM; i++){
+    array[i] = i + 1;
   }
 }
 
 
 void shuffle_array (int *array) {
   int i;
-  for (i = 0; i < MAX_NUM; i++){
-    array[i] = i + 1;
-  }
-
-  int j;
   int tmp;
   srand((unsigned)time(NULL));
-  for (j = MAX_NUM - 1; i > 0; i--) {
-    int k = rand() % j;
-    tmp = array[j];
-    array[j] = array[k];
-    array[k] = tmp;
+  for (i = MAX_NUM - 1; i > 0; i--) {
+    int j = rand() % i;
+    tmp = array[i];
+    array[i] = array[j];
+    array[j] = tmp;
   }
 }
