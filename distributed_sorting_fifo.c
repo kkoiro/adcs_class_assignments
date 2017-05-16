@@ -39,6 +39,9 @@ void child_node_process (int);
 void create_sequential_num_array (int *);
 void shuffle_array (int *);
 int compare_int (const void *a, const void *b);
+void swap_minnum_with_buff (int *, int *);
+void swap_maxnum_with_buff (int *, int *);
+void swap_int (int *, int *);
 
 
 //////////////////////
@@ -152,20 +155,39 @@ void child_node_process (int node_id) {
   struct node node;
   construct_node(&node, node_id);
   qsort((void *)node.num, EACH_NODE_SORTING_NUM, sizeof(int), compare_int);
-  printf("Node %d pid: %d\n", node_id, getpid());
+  //printf("Node %d pid: %d\n", node_id, getpid());
   if (node_id == 0) {
     // top node
     read(node.fifods_r_from_lower, &node.buff, sizeof(node.buff));
-    printf("Received_num_from_top_node: %d\n", node.buff);
+    printf("Received_num_from_bottom_node: %d\n", node.buff);
+    if (node.buff < node.num[EACH_NODE_SORTING_NUM - 1]) {
+      swap_maxnum_with_buff(node.num, &node.buff);
+    }
+    write(node.fifods_w_to_lower, &node.buff, sizeof(node.buff));
+    printf("Node %d sending_num: %d\n", node_id, node.buff);
   } else if (node_id == NODE_NUM - 1) {
     // bottom node
     node.buff = node.num[0];
     write(node.fifods_w_to_upper, &node.buff, sizeof(node.buff));
     printf("Node %d sending_num: %d\n", node_id, node.buff);
+    read(node.fifods_r_from_upper, &node.buff, sizeof(node.buff));
+    printf("Received_num_from_top_node: %d\n", node.buff);
   } else {
     // middle node
     read(node.fifods_r_from_lower, &node.buff, sizeof(node.buff));
+    printf("Node %d receiving_num: %d\n", node_id, node.buff);
+    if (node.buff > node.num[0]) {
+      swap_minnum_with_buff(node.num, &node.buff);
+    }
     write(node.fifods_w_to_upper, &node.buff, sizeof(node.buff));
+    printf("Node %d sending_num: %d\n", node_id, node.buff);
+    read(node.fifods_r_from_upper, &node.buff, sizeof(node.buff));
+    printf("Node %d receiving_num: %d\n", node_id, node.buff);
+    if (node.buff < node.num[EACH_NODE_SORTING_NUM - 1]) {
+      swap_maxnum_with_buff(node.num, &node.buff);
+    }
+    write(node.fifods_w_to_lower, &node.buff, sizeof(node.buff));
+    printf("Node %d sending_num: %d\n", node_id, node.buff);
   }
 }
 
@@ -190,6 +212,7 @@ void shuffle_array (int *array) {
   }
 }
 
+
 int compare_int (const void *a, const void *b) {
   if (*(int *)a > *(int *)b) {
     return 1;
@@ -198,4 +221,38 @@ int compare_int (const void *a, const void *b) {
   } else {
     return -1;
   }
+}
+
+
+void swap_minnum_with_buff (int *num, int *buff) {
+  swap_int(&num[0], buff);
+  int i;
+  for (i = 0; i < EACH_NODE_SORTING_NUM - 1; i++) {
+    if (num[i] < num[i + 1]) {
+      swap_int(&num[i], &num[i + 1]);
+    } else {
+      break;
+    }
+  }
+}
+
+
+void swap_maxnum_with_buff (int *num, int *buff) {
+  swap_int(&num[EACH_NODE_SORTING_NUM - 1], buff);
+  int i;
+  for (i = EACH_NODE_SORTING_NUM - 1; i > 0; i--) {
+    if (num[i] < num[i - 1]) {
+      swap_int(&num[i], &num[i - 1]);
+    } else {
+      break;
+    }
+  }
+}
+
+
+void swap_int (int *a, int *b) {
+  int tmp;
+  tmp = *a;
+  *a = *b;
+  *b = tmp;
 }
